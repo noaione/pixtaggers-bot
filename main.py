@@ -7,6 +7,7 @@ from pathlib import Path
 import orjson
 from blacksheep import Application, FromJSON, FromQuery, accepted, get, json, post, status_code
 from PIL import Image
+from pydantic import BaseModel
 
 from pixtaggers.camiedetect import MODEL_PATH, CamieSession
 from pixtaggers.discordhook import DiscordHook
@@ -304,6 +305,7 @@ async def work_auto_tag_process_multiple(
     # Rather than all of them, do one by one
     for post_id in post_ids:
         await work_auto_tag_process(str(post_id), client, camie_session, discord)
+    print(f"Completed auto-tag process for post IDs: {', '.join(str(pid) for pid in post_ids)}")
 
 
 @get("/")
@@ -335,25 +337,23 @@ def handle_webhook(
     return accepted()
 
 
-@dataclass
-class RangedIds:
+class RangedIdsModel(BaseModel):
     start: int
     end: int
 
 
-@dataclass
-class ManualTagUpdateRequest:
-    id: int | list[int] | RangedIds
+class ManualTagUpdateRequestModel(BaseModel):
+    id: int | list[int] | RangedIdsModel
 
     def into_ranged_ids(self) -> list[int]:
         if isinstance(self.id, int):
             return [self.id]
         elif isinstance(self.id, list):
             return self.id
-        elif isinstance(self.id, RangedIds):
+        elif isinstance(self.id, RangedIdsModel):
             return list(range(self.id.start, self.id.end + 1))
         else:
-            raise ValueError("Invalid 'id' format. Must be int, list of ints, or tuple of two ints.")
+            raise ValueError("Invalid 'id' format. Must be int, list of ints, or RangedIds.")
 
 
 @post("/tag")
@@ -361,7 +361,7 @@ def manual_tag_update(
     camie_session: CamieSession,
     client: SzurubooruClient,
     discord: DiscordHook,
-    data: FromJSON[ManualTagUpdateRequest],
+    data: FromJSON[ManualTagUpdateRequestModel],
     t: FromQuery[str],
 ):
     payload = data.value
