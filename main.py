@@ -209,7 +209,7 @@ async def work_auto_tag_process(
             presel_thumb_frame = None
             try:
                 video_data = await client.download_image(post_data["image_url"])
-                print(f"Downloaded media for post ID {post_id}, size: {len(downloaded_image)} bytes")
+                print(f"Downloaded media for post ID {post_id}, size: {len(video_data)} bytes")
 
                 frames = extract_frames_from_video(
                     video_data=video_data, num_frames=config_data.thumbnails.video.extract
