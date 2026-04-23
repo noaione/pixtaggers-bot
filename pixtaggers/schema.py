@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 
@@ -79,6 +79,7 @@ class Config:
     tagging_enable: TaggingEnabled
     threshold: TaggingThresholds
     key: str
+    discord_url: str | None = field(default=None)
 
     @classmethod
     def from_json(cls, json_data: dict) -> "Config":
@@ -89,4 +90,5 @@ class Config:
             tagging_enable=TaggingEnabled(**json_data["tagging_enable"]),
             threshold=TaggingThresholds(**json_data["threshold"]),
             key=json_data["key"],
+            discord_url=json_data.get("discord_url"),
         )

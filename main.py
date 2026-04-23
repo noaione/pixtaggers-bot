@@ -9,6 +9,7 @@ from blacksheep import Application, FromJSON, FromQuery, accepted, get, json, po
 from PIL import Image
 
 from pixtaggers.camiedetect import MODEL_PATH, CamieSession
+from pixtaggers.discordhook import DiscordHook
 from pixtaggers.img_helpers import ModelThreshold, resize_by_longest_side
 from pixtaggers.schema import Config, SimpleSnapshot
 from pixtaggers.szurubooru import SimplePost, SzurubooruClient
@@ -38,6 +39,10 @@ async def lifespan():
     print("Fetching available tags from Szurubooru...")
     GLOBAL_TAGS = set(await szuru_session.get_current_tags())
     app.services.register(SzurubooruClient, instance=szuru_session)
+
+    webhook_svc = DiscordHook(config_data.discord_url, host_urL=config_data.szuru.host)
+    app.services.register(DiscordHook, instance=webhook_svc)
+    print("Registering ONNX client...")
     async with CamieSession(MODEL_PATH, model_threshold, config_data.threshold.top_k) as session:
         app.services.register(CamieSession, instance=session)
         yield
@@ -106,7 +111,9 @@ async def maybe_upload_video_frame_as_thumbnail(post: SimplePost, client: Szurub
         print(f"Error updating video thumbnail for post ID {post['id']}: {e}")
 
 
-async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_session: CamieSession):
+async def work_auto_tag_process(
+    post_id: str, client: SzurubooruClient, camie_session: CamieSession, discord: DiscordHook
+):
     global GLOBAL_TAGS
 
     print(f"Starting auto-tag process for post ID: {post_id}")
@@ -125,6 +132,7 @@ async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_se
                 print(f"Downloaded image for post ID {post_id}, size: {len(downloaded_image)} bytes")
             except Exception as e:
                 print(f"Error downloading image for post ID {post_id}: {e}")
+                await discord.report_error(post_id_int, f"Error downloading image: {e}")
                 return
 
             print("Running detection model...")
@@ -133,6 +141,7 @@ async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_se
                 print(f"Model suggested {tags_to_add.count()} tags for post ID {post_id}, rating {tags_to_add.rating}")
             except Exception as e:
                 print(f"Error running detection model for post ID {post_id}: {e}")
+                await discord.report_error(post_id_int, f"Error running detection model: {e}")
                 return
             if not config_data.tagging_enable.general:
                 tags_to_add.general = []
@@ -160,6 +169,7 @@ async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_se
                 )
             except Exception as e:
                 print(f"Error creating missing tags: {e}")
+                await discord.report_error(post_id_int, f"Error creating missing tags: {e}")
                 return
 
             merged_tags = merge_tags(tags_to_add.general, tags_to_add.media, tags_to_add.characters, tags_to_add.meta)
@@ -182,6 +192,7 @@ async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_se
                 print(f"Post ID {post_id} updated successfully with new tags.")
             except Exception as e:
                 print(f"Error updating post with new tags: {e}")
+                await discord.report_error(post_id_int, f"Error updating post with new tags: {e}")
                 return
 
             if new_post is not None and "generated" not in new_post["thumbnail_url"]:
@@ -224,6 +235,7 @@ async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_se
                     presel_thumb_frame = frames[0]
             except Exception as e:
                 print(f"Error processing video for post ID {post_id}: {e}")
+                await discord.report_error(post_id_int, f"Error processing video: {e}")
                 return
 
             if not config_data.tagging_enable.general:
@@ -252,6 +264,7 @@ async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_se
                 )
             except Exception as e:
                 print(f"Error creating missing tags: {e}")
+                await discord.report_error(post_id_int, f"Error creating missing tags: {e}")
                 return
 
             merged_tags = merge_tags(general_new_tags, media_new_tags, characters_new_tags, meta_new_tags)
@@ -275,6 +288,7 @@ async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_se
                 print(f"Post ID {post_id} updated successfully with new tags.")
             except Exception as e:
                 print(f"Error updating post with new tags: {e}")
+                await discord.report_error(post_id_int, f"Error updating post with new tags: {e}")
                 return
 
             if new_post is not None and "generated" not in new_post["thumbnail_url"] and presel_thumb_frame is not None:
@@ -284,13 +298,23 @@ async def work_auto_tag_process(post_id: str, client: SzurubooruClient, camie_se
             return
 
 
+async def work_auto_tag_process_multiple(
+    post_ids: list[int], client: SzurubooruClient, camie_session: CamieSession, discord: DiscordHook
+):
+    # Rather than all of them, do one by one
+    for post_id in post_ids:
+        await work_auto_tag_process(str(post_id), client, camie_session, discord)
+
+
 @get("/")
 def hello():
     return json({"status": "ok"})
 
 
 @post("/webhooks")
-def handle_webhook(camie_session: CamieSession, client: SzurubooruClient, data: FromJSON[dict], t: FromQuery[str]):
+def handle_webhook(
+    camie_session: CamieSession, client: SzurubooruClient, discord: DiscordHook, data: FromJSON[dict], t: FromQuery[str]
+):
     payload = data.value
     snapshot = SimpleSnapshot(
         id=payload.get("resource_id", ""),
@@ -306,29 +330,43 @@ def handle_webhook(camie_session: CamieSession, client: SzurubooruClient, data: 
         return accepted("ignored operation other than 'created'")
 
     # queue the tagging process in background
-    asyncio.create_task(work_auto_tag_process(snapshot.id, client, camie_session))  # noqa: RUF006
+    asyncio.create_task(work_auto_tag_process(snapshot.id, client, camie_session, discord))  # noqa: RUF006
 
     return accepted()
 
 
 @dataclass
 class ManualTagUpdateRequest:
-    id: int | list[int]
+    id: int | list[int] | tuple[int, int]
+
+    def into_ranged_ids(self) -> list[int]:
+        if isinstance(self.id, int):
+            return [self.id]
+        elif isinstance(self.id, list):
+            return self.id
+        elif isinstance(self.id, tuple) and len(self.id) == 2:
+            start, end = self.id
+            return list(range(start, end + 1))
+        else:
+            raise ValueError("Invalid 'id' format. Must be int, list of ints, or tuple of two ints.")
 
 
 @post("/tag")
 def manual_tag_update(
-    camie_session: CamieSession, client: SzurubooruClient, data: FromJSON[ManualTagUpdateRequest], t: FromQuery[str]
+    camie_session: CamieSession,
+    client: SzurubooruClient,
+    discord: DiscordHook,
+    data: FromJSON[ManualTagUpdateRequest],
+    t: FromQuery[str],
 ):
     payload = data.value
-    all_post_ids = payload.id if isinstance(payload.id, list) else [payload.id]
+    all_post_ids = payload.into_ranged_ids()
     if not all_post_ids:
         return status_code(400, "Missing 'post_id' in request body")
     if config_data.key != t.value:
         return status_code(401, "Unauthorized")
 
-    for post_id in all_post_ids:
-        asyncio.create_task(work_auto_tag_process(str(post_id), client, camie_session))  # noqa: RUF006
+    asyncio.create_task(work_auto_tag_process_multiple(all_post_ids, client, camie_session, discord))  # noqa: RUF006
 
     return accepted("Tag update process started for post IDs: " + ", ".join(str(pid) for pid in all_post_ids))
 

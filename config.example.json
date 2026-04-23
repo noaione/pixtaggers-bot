@@ -33,5 +33,6 @@
         "rating": 0.614,
         "top_k": 64
     },
-    "key": "some-random-key-for-authentication"
+    "key": "some-random-key-for-authentication",
+    "discord_url": null
 }
