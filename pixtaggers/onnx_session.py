@@ -37,31 +37,37 @@ def prepare_model_runtime_builders(
         "trt_ep_context_file_path": str(DATA_DIR),
         "trt_detailed_build_log": True if is_verbose else False,
     }
-    # trtrtx_ep_config = {
-    #     "device_id": device_id,
-    #     "nv_max_workspace_size": memory_limit,
-    #     "nv_detailed_build_log": True if is_verbose else False,
-    #     "nv_runtime_cache_path": str(cache_rtx_dir),
-    # }
+    trtrtx_ep_config = {
+        "device_id": device_id,
+        "nv_max_workspace_size": memory_limit,
+        "nv_detailed_build_log": True if is_verbose else False,
+        "nv_runtime_cache_path": str(cache_rtx_dir),
+    }
 
+    available_providers = ort.get_available_providers()
+
+    providers = []
     if sys.platform != "darwin":
-        providers = [
-            # ("NvTensorRTRTXExecutionProvider", trtrtx_ep_config),
-            ("TensorrtExecutionProvider", trt_ep_config),
-            (
-                "CUDAExecutionProvider",
-                {
-                    "device_id": device_id,
-                    "arena_extend_strategy": "kNextPowerOfTwo",
-                    "gpu_mem_limit": memory_limit,
-                    "cudnn_conv_algo_search": "EXHAUSTIVE",
-                    "do_copy_in_default_stream": True,
-                    "cudnn_conv_use_max_workspace": True,
-                    "prefer_nhwc": True,
-                },
-            ),
-            ("CPUExecutionProvider", {"arena_extend_strategy": "kNextPowerOfTwo"}),
-        ]
+        if "NvTensorRTRTXExecutionProvider" in available_providers:
+            providers.append(("NvTensorRTRTXExecutionProvider", trtrtx_ep_config))
+        if "TensorrtExecutionProvider" in available_providers:
+            providers.append(("TensorrtExecutionProvider", trt_ep_config))
+        if "CUDAExecutionProvider" in available_providers:
+            providers.append(
+                (
+                    "CUDAExecutionProvider",
+                    {
+                        "device_id": device_id,
+                        "arena_extend_strategy": "kNextPowerOfTwo",
+                        "gpu_mem_limit": memory_limit,
+                        "cudnn_conv_algo_search": "EXHAUSTIVE",
+                        "do_copy_in_default_stream": True,
+                        "cudnn_conv_use_max_workspace": True,
+                        "prefer_nhwc": True,
+                    },
+                )
+            )
+        providers.append(("CPUExecutionProvider", {"arena_extend_strategy": "kNextPowerOfTwo"}))
     else:
         providers = [
             (
