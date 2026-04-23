@@ -336,17 +336,22 @@ def handle_webhook(
 
 
 @dataclass
+class RangedIds:
+    start: int
+    end: int
+
+
+@dataclass
 class ManualTagUpdateRequest:
-    id: int | list[int] | tuple[int, int]
+    id: int | list[int] | RangedIds
 
     def into_ranged_ids(self) -> list[int]:
         if isinstance(self.id, int):
             return [self.id]
         elif isinstance(self.id, list):
             return self.id
-        elif isinstance(self.id, tuple) and len(self.id) == 2:
-            start, end = self.id
-            return list(range(start, end + 1))
+        elif isinstance(self.id, RangedIds):
+            return list(range(self.id.start, self.id.end + 1))
         else:
             raise ValueError("Invalid 'id' format. Must be int, list of ints, or tuple of two ints.")
 
