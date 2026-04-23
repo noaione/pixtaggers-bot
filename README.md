@@ -29,3 +29,8 @@ The bot is configured using a config.json file. You can use the provided config.
 
 This is used to verify that the request is coming from an authorized source and to prevent unauthorized access to the bot's functionality.
 
+## Where to download models?
+
+Get both the `camie-tagger-v2.onnx` and `camie-tagger-v2-metadata.json` file from here: https://huggingface.co/Camais03/camie-tagger-v2/tree/main
+
+Download and place them in the `./pixtaggers/models/` directory.
