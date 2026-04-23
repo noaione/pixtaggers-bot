@@ -1,0 +1,18 @@
+[project]
+name = "pixtaggers-bot"
+version = "0.1.0"
+description = "A simple robot that accepts webhook requests and tags images using a pre-trained model."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "av==17.0.1",
+    "blacksheep>=2.6.2",
+    "httpx==0.28.1",
+    "numpy==2.4.4",
+    "onnx==1.21.0",
+    "onnxruntime==1.24.4",
+    "orjson>=3.11.8",
+    "pillow==12.2.0",
+    "tqdm==4.67.3",
+    "uvicorn>=0.46.0",
+]

@@ -1,0 +1,10 @@
+**/models/*.onnx
+**/models/*.json
+.venv/
+.env/
+venv/
+engine-data/
+
+__pycache__/
+
+config.json

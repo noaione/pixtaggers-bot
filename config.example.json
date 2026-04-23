@@ -1,0 +1,37 @@
+{
+    "szuru": {
+        "host": "https://your.szuru.instance",
+        "user": "username",
+        "token": "token-that-can-change-stuff"
+    },
+    "thumbnails": {
+        "target_size": 600,
+        "alpha_fix": false,
+        "video": {
+            "enabled": true,
+            "extract": 5,
+            "detect": 3
+        }
+    },
+    "tagging_map": {
+        "general": "general",
+        "media": "copyright",
+        "characters": "character",
+        "meta": "meta"
+    },
+    "tagging_enable": {
+        "general": true,
+        "media": false,
+        "characters": false,
+        "meta": true,
+        "rating": true
+    },
+    "threshold": {
+        "general": 0.492,
+        "characters": 0.614,
+        "media": 0.492,
+        "rating": 0.614,
+        "top_k": 64
+    },
+    "key": "some-random-key-for-authentication"
+}
