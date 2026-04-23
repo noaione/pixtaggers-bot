@@ -1,9 +1,12 @@
+import asyncio
 import base64
 from io import BytesIO
 from typing import AsyncGenerator, Literal, TypedDict
 
 import httpx
 from tqdm import tqdm
+
+BACKOFF_BASE = 0.75  # Base backoff time in seconds for retries
 
 
 class SimplePost(TypedDict):
@@ -52,6 +55,39 @@ class SzurubooruClient:
         if response.status_code >= 400:
             raise Exception(f"API request failed: {response.status_code} {response.text}")
         return response.json()
+
+    async def _repeated_post_update(
+        self, post_id: int, base_version: str, base_payload: dict, max_retries: int = 3
+    ) -> SimplePost:
+        """
+        Helper method to handle optimistic concurrency control when updating a post.
+        It retries the update if a version conflict occurs, up to a maximum number of retries.
+        """
+        version = base_version
+        for attempt in range(max_retries):
+            try:
+                payload = {**base_payload, "version": version}
+                data = await self._request("PUT", f"post/{post_id}", json=payload)
+                return {
+                    "id": data["id"],
+                    "version": data["version"],
+                    "image_url": f"{self.base_url}/{data['contentUrl'].lstrip('/')}",
+                    "thumbnail_url": f"{self.base_url}/{data['thumbnailUrl'].lstrip('/')}",
+                    "tags": [t["names"][0] for t in data["tags"]],
+                    "safety": data["safety"],
+                    "kind": data["type"],
+                }
+            except Exception as e:
+                if (
+                    "version conflict" in str(e).lower() or "resourcemodified" in str(e).lower()
+                ) and attempt < max_retries - 1:
+                    await asyncio.sleep(BACKOFF_BASE * (2 ** attempt))  # Exponential backoff
+                    # Fetch the latest version and retry
+                    latest_data = await self._request("GET", f"post/{post_id}")
+                    version = latest_data["version"]
+                else:
+                    raise
+        raise Exception(f"Failed to update post {post_id} after {max_retries} attempts due to version conflicts.")
 
     async def get_current_tags(self) -> list[str]:
         """Fetches the list of all tags currently in the system."""
@@ -148,16 +184,7 @@ class SzurubooruClient:
         if safety is not None:
             payload["safety"] = safety
 
-        data = await self._request("PUT", f"post/{post_id}", json=payload)
-        return {
-            "id": data["id"],
-            "version": data["version"],
-            "image_url": f"{self.base_url}/{data['contentUrl'].lstrip('/')}",
-            "thumbnail_url": f"{self.base_url}/{data['thumbnailUrl'].lstrip('/')}",
-            "tags": [t["names"][0] for t in data["tags"]],
-            "safety": data["safety"],
-            "kind": data["type"],
-        }
+        return await self._repeated_post_update(post_id, version, payload)
 
     async def iter_tags(self, query: str = "", limit: int = 100) -> AsyncGenerator[SimpleTag, None]:
         """
@@ -196,7 +223,7 @@ class SzurubooruClient:
             "POST", "uploads", files={"content": (None, buffer_io, "image/png")}, headers={"Content-Type": None}
         )
         payload = {"version": version, "thumbnailToken": token_resp["token"]}
-        await self._request("PUT", f"post/{post_id}", json=payload)
+        await self._repeated_post_update(post_id, version, payload)
 
     async def batch_create_tags(self, tags: list[str], category: str):
         if not tags:

@@ -1,6 +1,5 @@
 import asyncio
 import re
-from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 
