@@ -123,7 +123,12 @@ async def work_auto_tag_process(
         print(f"Invalid post ID: {post_id}")
         return
 
-    post_data = await client.get_post(post_id_int)
+    try:
+        post_data = await client.get_post(post_id_int)
+    except Exception as e:
+        print(f"Error fetching post data for ID {post_id}: {e}")
+        await discord.report_error(post_id_int, f"Error fetching post data: {e}")
+        return
     print(f"Processing post data for ID {post_id} (v{post_data['version']}), kind: {post_data['kind']}")
     match post_data["kind"]:
         case "image":
