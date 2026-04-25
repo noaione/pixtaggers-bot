@@ -220,7 +220,7 @@ class SzurubooruClient:
         """
         buffer_io = BytesIO(thumbnail_data)
         token_resp = await self._request(
-            "POST", "uploads", files={"content": (None, buffer_io, "image/png")}, headers={"Content-Type": None}
+            "POST", "uploads", files={"content": (None, buffer_io, "image/png")}
         )
         payload = {"version": version, "thumbnailToken": token_resp["token"]}
         await self._repeated_post_update(post_id, version, payload)
