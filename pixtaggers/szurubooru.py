@@ -42,7 +42,6 @@ class SzurubooruClient:
         self.session.headers.update({
             "Authorization": f"Token {encoded_auth}",
             "Accept": "application/json",
-            "Content-Type": "application/json",
         })
 
     async def close(self):
@@ -51,6 +50,9 @@ class SzurubooruClient:
     async def _request(self, method: str, endpoint: str, **kwargs) -> dict:
         """Internal helper for API requests."""
         url = f"{self.api_url}/{endpoint.lstrip('/')}"
+        # Check if kwargs has "files", if yes we should not set "Content-Type" header to "application/json"
+        if "files" not in kwargs:
+            kwargs.setdefault("headers", {})["Content-Type"] = "application/json"
         response = await self.session.request(method, url, **kwargs)
         if response.status_code >= 400:
             raise Exception(f"API request failed: {response.status_code} {response.text}")
