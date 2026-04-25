@@ -200,7 +200,7 @@ async def work_auto_tag_process(
                 await discord.report_error(post_id_int, f"Error updating post with new tags: {e}")
                 return
 
-            if new_post is not None and "generated" not in new_post["thumbnail_url"]:
+            if new_post is not None and "generated" in new_post["thumbnail_url"] and config_data.thumbnails.alpha_fix:
                 await maybe_work_on_alpha_thumbs(new_post, client, downloaded_image)
         case "video" | "animation":
             meta_new_tags = ["animated"]
@@ -296,7 +296,12 @@ async def work_auto_tag_process(
                 await discord.report_error(post_id_int, f"Error updating post with new tags: {e}")
                 return
 
-            if new_post is not None and "generated" not in new_post["thumbnail_url"] and presel_thumb_frame is not None:
+            if (
+                new_post is not None and
+                "generated" in new_post["thumbnail_url"] and
+                presel_thumb_frame is not None and
+                config_data.thumbnails.video.enabled
+            ):
                 await maybe_upload_video_frame_as_thumbnail(new_post, client, presel_thumb_frame)
         case _:
             print(f"Unsupported post kind '{post_data['kind']}' for post ID {post_id}. Skipping.")
