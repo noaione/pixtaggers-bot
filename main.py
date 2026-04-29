@@ -103,7 +103,9 @@ async def maybe_upload_video_frame_as_thumbnail(post: SimplePost, client: Szurub
 
     thumb_img = resize_by_longest_side(img, config_data.thumbnails.target_size)
     output_buffer = BytesIO()
-    await asyncio.to_thread(lambda: thumb_img.save(output_buffer, format="PNG", optimize=True))
+    await asyncio.to_thread(
+        lambda: thumb_img.save(output_buffer, format="JPG", quality=95, optimize=True, progressive=True)
+    )
     thumb_bytes = output_buffer.getvalue()
     print(f"Updating video thumbnail for post ID {post['id']}...")
     try:
