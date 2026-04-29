@@ -85,7 +85,9 @@ async def maybe_work_on_alpha_thumbs(post: SimplePost, client: SzurubooruClient,
     thumb_img = resize_by_longest_side(ret_img, config_data.thumbnails.target_size)
     # Save as RGB24 PNG
     output_buffer = BytesIO()
-    await asyncio.to_thread(lambda: thumb_img.save(output_buffer, format="PNG", optimize=True))
+    await asyncio.to_thread(
+        lambda: thumb_img.save(output_buffer, format="JPG", quality=95, optimize=True, progressive=True)
+    )
     thumb_bytes = output_buffer.getvalue()
 
     print(f"Updating thumbnail for post ID {post['id']}...")
