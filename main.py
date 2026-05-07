@@ -69,12 +69,12 @@ def sanitize_tags(tags: list[str]) -> list[str]:
     return tags
 
 
-async def maybe_work_on_alpha_thumbs(post: SimplePost, client: SzurubooruClient, bytes_data: bytes):
+async def maybe_work_on_alpha_thumbs(post: SimplePost, client: SzurubooruClient, bytes_data: bytes) -> bool:
     print(f"Post ID {post['id']} has alpha transparency, retrying thumbnail generation...")
     img = Image.open(BytesIO(bytes_data))
     if img.mode not in ("RGBA", "LA", "PA"):
         print("Image does not have an alpha channel. Skipping.")
-        return None
+        return True
 
     # Make white background
     ret_img = Image.new("RGBA", img.size, "white")
@@ -94,11 +94,13 @@ async def maybe_work_on_alpha_thumbs(post: SimplePost, client: SzurubooruClient,
     try:
         await client.update_thumbnail(post["id"], version=post["version"], thumbnail_data=thumb_bytes)
         print(f"Thumbnail for post ID {post['id']} updated successfully.")
+        return True
     except Exception as e:
         print(f"Error updating thumbnail for post ID {post['id']}: {e}")
+        return False
 
 
-async def maybe_upload_video_frame_as_thumbnail(post: SimplePost, client: SzurubooruClient, video_bytes: bytes):
+async def maybe_upload_video_frame_as_thumbnail(post: SimplePost, client: SzurubooruClient, video_bytes: bytes) -> bool:
     img = Image.open(BytesIO(video_bytes))
 
     thumb_img = resize_by_longest_side(img, config_data.thumbnails.target_size)
@@ -111,13 +113,15 @@ async def maybe_upload_video_frame_as_thumbnail(post: SimplePost, client: Szurub
     try:
         await client.update_thumbnail(post["id"], version=post["version"], thumbnail_data=thumb_bytes)
         print(f"Video thumbnail for post ID {post['id']} updated successfully.")
+        return True
     except Exception as e:
         print(f"Error updating video thumbnail for post ID {post['id']}: {e}")
+        return False
 
 
 async def work_auto_tag_process(
     post_id: str, client: SzurubooruClient, camie_session: CamieSession, discord: DiscordHook
-):
+) -> bool:
     global GLOBAL_TAGS
 
     print(f"Starting auto-tag process for post ID: {post_id}")
@@ -125,14 +129,14 @@ async def work_auto_tag_process(
         post_id_int = int(post_id)
     except ValueError:
         print(f"Invalid post ID: {post_id}")
-        return
+        return False
 
     try:
         post_data = await client.get_post(post_id_int)
     except Exception as e:
         print(f"Error fetching post data for ID {post_id}: {e}")
         await discord.report_error(post_id_int, f"Error fetching post data: {e}")
-        return
+        return False
     print(f"Processing post data for ID {post_id} (v{post_data['version']}), kind: {post_data['kind']}")
     match post_data["kind"]:
         case "image":
@@ -142,7 +146,7 @@ async def work_auto_tag_process(
             except Exception as e:
                 print(f"Error downloading image for post ID {post_id}: {e}")
                 await discord.report_error(post_id_int, f"Error downloading image: {e}")
-                return
+                return False
 
             print("Running detection model...")
             try:
@@ -151,7 +155,7 @@ async def work_auto_tag_process(
             except Exception as e:
                 print(f"Error running detection model for post ID {post_id}: {e}")
                 await discord.report_error(post_id_int, f"Error running detection model: {e}")
-                return
+                return False
             if not config_data.tagging_enable.general:
                 tags_to_add.general = []
             if not config_data.tagging_enable.media:
@@ -179,7 +183,7 @@ async def work_auto_tag_process(
             except Exception as e:
                 print(f"Error creating missing tags: {e}")
                 await discord.report_error(post_id_int, f"Error creating missing tags: {e}")
-                return
+                return False
 
             merged_tags = merge_tags(tags_to_add.general, tags_to_add.media, tags_to_add.characters, tags_to_add.meta)
             merged_tags = sanitize_tags(merged_tags)
@@ -189,7 +193,7 @@ async def work_auto_tag_process(
             GLOBAL_TAGS.update(tags_to_add.meta)
             if not merged_tags:
                 print(f"No new tags to add for post ID {post_id}. Skipping update.")
-                return
+                return True
 
             merged_tags = merge_tags(merged_tags, post_data["tags"])
             new_post = None
@@ -202,10 +206,11 @@ async def work_auto_tag_process(
             except Exception as e:
                 print(f"Error updating post with new tags: {e}")
                 await discord.report_error(post_id_int, f"Error updating post with new tags: {e}")
-                return
+                return False
 
             if new_post is not None and "generated" in new_post["thumbnail_url"] and config_data.thumbnails.alpha_fix:
-                await maybe_work_on_alpha_thumbs(new_post, client, downloaded_image)
+                return await maybe_work_on_alpha_thumbs(new_post, client, downloaded_image)
+            return True
         case "video" | "animation":
             meta_new_tags = ["animated"]
             if post_data["kind"] == "video":
@@ -228,6 +233,7 @@ async def work_auto_tag_process(
                     if presel_thumb_frame is None:
                         presel_thumb_frame = frame_bytes
                     try:
+                        print(f"Running detection model for a video frame in post ID {post_id} (frame {img_counter})")
                         frame_tags = await camie_session.detect(frame_bytes)
                         meta_new_tags.extend(frame_tags.meta)
                         general_new_tags.extend(frame_tags.general)
@@ -236,7 +242,7 @@ async def work_auto_tag_process(
                         detected_rating = frame_tags.rating
                     except Exception as e:
                         print(f"Error running detection model for a video frame in post ID {post_id}: {e}")
-                        return
+                        return False
                     img_counter += 1
                     if img_counter >= config_data.thumbnails.video.detect:
                         break
@@ -245,7 +251,7 @@ async def work_auto_tag_process(
             except Exception as e:
                 print(f"Error processing video for post ID {post_id}: {e}")
                 await discord.report_error(post_id_int, f"Error processing video: {e}")
-                return
+                return False
 
             if not config_data.tagging_enable.general:
                 general_new_tags = []
@@ -274,7 +280,7 @@ async def work_auto_tag_process(
             except Exception as e:
                 print(f"Error creating missing tags: {e}")
                 await discord.report_error(post_id_int, f"Error creating missing tags: {e}")
-                return
+                return False
 
             merged_tags = merge_tags(general_new_tags, media_new_tags, characters_new_tags, meta_new_tags)
             merged_tags = sanitize_tags(merged_tags)
@@ -284,7 +290,7 @@ async def work_auto_tag_process(
             GLOBAL_TAGS.update(meta_new_tags)
             if not merged_tags:
                 print(f"No new tags to add for post ID {post_id}. Skipping update.")
-                return
+                return True
 
             merged_tags = merge_tags(merged_tags, post_data["tags"])
 
@@ -298,7 +304,7 @@ async def work_auto_tag_process(
             except Exception as e:
                 print(f"Error updating post with new tags: {e}")
                 await discord.report_error(post_id_int, f"Error updating post with new tags: {e}")
-                return
+                return False
 
             if (
                 new_post is not None and
@@ -306,19 +312,24 @@ async def work_auto_tag_process(
                 presel_thumb_frame is not None and
                 config_data.thumbnails.video.enabled
             ):
-                await maybe_upload_video_frame_as_thumbnail(new_post, client, presel_thumb_frame)
+                return await maybe_upload_video_frame_as_thumbnail(new_post, client, presel_thumb_frame)
+            return True
         case _:
             print(f"Unsupported post kind '{post_data['kind']}' for post ID {post_id}. Skipping.")
-            return
+            return True
 
 
 async def work_auto_tag_process_multiple(
     post_ids: list[int], client: SzurubooruClient, camie_session: CamieSession, discord: DiscordHook
 ):
     # Rather than all of them, do one by one
+    failure = 0
     for post_id in post_ids:
-        await work_auto_tag_process(str(post_id), client, camie_session, discord)
+        success = await work_auto_tag_process(str(post_id), client, camie_session, discord)
+        if not success:
+            failure += 1
     print(f"Completed auto-tag process for post IDs: {', '.join(str(pid) for pid in post_ids)}")
+    await discord.report_batch_complete(post_ids, failure, len(post_ids))
 
 
 @get("/")

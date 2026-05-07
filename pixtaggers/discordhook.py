@@ -28,3 +28,23 @@ class DiscordHook:
                 await client.post(self.webhook_url, json={"embeds": [embed]})
             except Exception as e:
                 print(f"Failed to send error report to Discord: {e}")
+
+    async def report_batch_complete(self, post_ids: list[int], error_count: int, total_count: int):
+        if not self.webhook_url:
+            return
+
+        embed = {
+            "title": "Batch processing complete",
+            "description": f"Processed {total_count} posts with {error_count} errors",
+            "color": 0x00FF00,  # Green color
+            "author": {
+                "name": "Pixtaggers",
+                "url": self.host_url,
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.post(self.webhook_url, json={"embeds": [embed]})
+            except Exception as e:
+                print(f"Failed to send batch report to Discord: {e}")
