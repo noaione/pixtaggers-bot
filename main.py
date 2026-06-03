@@ -1,7 +1,9 @@
 import asyncio
+import random
 import re
 from io import BytesIO
 from pathlib import Path
+from zipfile import ZipFile
 
 import orjson
 from blacksheep import Application, FromJSON, FromQuery, accepted, get, json, post, status_code
@@ -222,11 +224,11 @@ async def work_auto_tag_process(
 
             presel_thumb_frame = None
             try:
-                video_data = await client.download_image(post_data["image_url"])
-                print(f"Downloaded media for post ID {post_id}, size: {len(video_data)} bytes")
+                ugoira_data = await client.download_image(post_data["image_url"])
+                print(f"Downloaded media for post ID {post_id}, size: {len(ugoira_data)} bytes")
 
                 frames = extract_frames_from_video(
-                    video_data=video_data, num_frames=config_data.thumbnails.video.extract
+                    video_data=ugoira_data, num_frames=config_data.thumbnails.video.extract
                 )
                 img_counter = 0
                 for frame_bytes in frames:
@@ -314,6 +316,101 @@ async def work_auto_tag_process(
             ):
                 return await maybe_upload_video_frame_as_thumbnail(new_post, client, presel_thumb_frame)
             return True
+        case "ugoira":
+            # Ugoira is a zip file of images, sample the same amount of frames from thumbnails.video.extract
+            meta_new_tags = ["animated"]
+            general_new_tags = []
+            media_new_tags = []
+            characters_new_tags = []
+            detected_rating = None
+
+            try:
+                ugoira_data = await client.download_image(post_data["image_url"])
+                print(f"Downloaded media for post ID {post_id}, size: {len(ugoira_data)} bytes")
+
+                # Open with zip file and read the animation.json
+                frames = []
+                with ZipFile(BytesIO(ugoira_data)) as zip_file:
+                    animation = orjson.loads(zip_file.read("animation.json").decode("utf-8"))
+                    # select random amount
+                    raw_frames = random.sample(animation["frames"], config_data.thumbnails.video.extract)
+                    for frame in raw_frames:
+                        frame_bytes = zip_file.read(frame["file"])
+                        frames.append(frame_bytes)
+
+                img_counter = 0
+                for frame_bytes in frames:
+                    try:
+                        print(f"Running detection model for a ugoira frame in post ID {post_id} (frame {img_counter})")
+                        frame_tags = await camie_session.detect(frame_bytes)
+                        meta_new_tags.extend(frame_tags.meta)
+                        general_new_tags.extend(frame_tags.general)
+                        media_new_tags.extend(frame_tags.media)
+                        characters_new_tags.extend(frame_tags.characters)
+                        detected_rating = frame_tags.rating
+                    except Exception as e:
+                        print(f"Error running detection model for a ugoira frame in post ID {post_id}: {e}")
+                        return False
+                    img_counter += 1
+                    if img_counter >= config_data.thumbnails.video.detect:
+                        break
+            except Exception as e:
+                print(f"Error processing ugoira for post ID {post_id}: {e}")
+                await discord.report_error(post_id_int, f"Error processing ugoira: {e}")
+                return False
+
+            if not config_data.tagging_enable.general:
+                general_new_tags = []
+            if not config_data.tagging_enable.media:
+                media_new_tags = []
+            if not config_data.tagging_enable.characters:
+                characters_new_tags = []
+            if not config_data.tagging_enable.meta:
+                meta_new_tags = []
+            if not config_data.tagging_enable.rating:
+                detected_rating = None
+
+            try:
+                await client.batch_create_tags(
+                    find_missing_tags(general_new_tags, GLOBAL_TAGS), config_data.tagging_map.general
+                )
+                await client.batch_create_tags(
+                    find_missing_tags(media_new_tags, GLOBAL_TAGS), config_data.tagging_map.media
+                )
+                await client.batch_create_tags(
+                    find_missing_tags(characters_new_tags, GLOBAL_TAGS), config_data.tagging_map.characters
+                )
+                await client.batch_create_tags(
+                    find_missing_tags(meta_new_tags, GLOBAL_TAGS), config_data.tagging_map.meta
+                )
+            except Exception as e:
+                print(f"Error creating missing tags: {e}")
+                await discord.report_error(post_id_int, f"Error creating missing tags: {e}")
+                return False
+
+            merged_tags = merge_tags(general_new_tags, media_new_tags, characters_new_tags, meta_new_tags)
+            merged_tags = sanitize_tags(merged_tags)
+            GLOBAL_TAGS.update(general_new_tags)
+            GLOBAL_TAGS.update(media_new_tags)
+            GLOBAL_TAGS.update(characters_new_tags)
+            GLOBAL_TAGS.update(meta_new_tags)
+            if not merged_tags:
+                print(f"No new tags to add for post ID {post_id}. Skipping update.")
+                return True
+
+            merged_tags = merge_tags(merged_tags, post_data["tags"])
+
+            new_post = None
+            try:
+                print(f"Updating post ID {post_id} with automated tags {len(merged_tags)} tags...")
+                new_post = await client.update_post(
+                    post_id_int, version=post_data["version"], tags=merged_tags, safety=detected_rating
+                )
+                print(f"Post ID {post_id} updated successfully with new tags.")
+            except Exception as e:
+                print(f"Error updating post with new tags: {e}")
+                await discord.report_error(post_id_int, f"Error updating post with new tags: {e}")
+                return False
         case _:
             print(f"Unsupported post kind '{post_data['kind']}' for post ID {post_id}. Skipping.")
             return True
