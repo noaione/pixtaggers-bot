@@ -318,7 +318,7 @@ async def work_auto_tag_process(
             return True
         case "ugoira":
             # Ugoira is a zip file of images, sample the same amount of frames from thumbnails.video.extract
-            meta_new_tags = ["animated"]
+            meta_new_tags = ["animated", "ugoira"]
             general_new_tags = []
             media_new_tags = []
             characters_new_tags = []
