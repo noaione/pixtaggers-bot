@@ -2,6 +2,7 @@ from io import BytesIO
 
 import av
 import numpy as np
+import pillow_jxl  # noqa: F401
 from av.container import InputContainer
 from PIL import Image
 

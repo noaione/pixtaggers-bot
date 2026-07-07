@@ -6,6 +6,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import orjson
+import pillow_jxl  # noqa: F401
 from blacksheep import Application, FromJSON, FromQuery, accepted, get, json, post, status_code
 from PIL import Image
 from pydantic import BaseModel

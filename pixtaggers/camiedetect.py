@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import onnxruntime as ort
+import pillow_jxl  # noqa: F401
 from PIL import Image
 
 from pixtaggers.onnx_session import prepare_model_runtime_builders
