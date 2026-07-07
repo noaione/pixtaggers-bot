@@ -3,8 +3,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Literal, TypeAlias, TypedDict
 
-import pillow_jxl  # noqa: F401
-from PIL import Image
+from .im_sess import Image
 
 RatingTag: TypeAlias = Literal["safe", "sketchy", "unsafe"]
 

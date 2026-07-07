@@ -2,9 +2,9 @@ from io import BytesIO
 
 import av
 import numpy as np
-import pillow_jxl  # noqa: F401
 from av.container import InputContainer
-from PIL import Image
+
+from .im_sess import Image
 
 
 def _is_solid_color_frame(image: Image.Image, threshold: float = 10.0) -> bool:

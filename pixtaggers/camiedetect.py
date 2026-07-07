@@ -7,11 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import onnxruntime as ort
-import pillow_jxl  # noqa: F401
-from PIL import Image
 
 from pixtaggers.onnx_session import prepare_model_runtime_builders
 
+from .im_sess import Image
 from .img_helpers import ModelThreshold, RatingTag, TagDetectionResult, has_alpha_channel, load_image
 
 TARGET_SIZE = 512

@@ -6,13 +6,12 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import orjson
-import pillow_jxl  # noqa: F401
 from blacksheep import Application, FromJSON, FromQuery, accepted, get, json, post, status_code
-from PIL import Image
 from pydantic import BaseModel
 
 from pixtaggers.camiedetect import MODEL_PATH, CamieSession
 from pixtaggers.discordhook import DiscordHook
+from pixtaggers.im_sess import Image
 from pixtaggers.img_helpers import ModelThreshold, resize_by_longest_side
 from pixtaggers.schema import Config, SimpleSnapshot
 from pixtaggers.szurubooru import SimplePost, SzurubooruClient
