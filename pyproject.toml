@@ -9,7 +9,7 @@ dependencies = [
     "blacksheep>=2.6.2",
     "httpx==0.28.1",
     "numpy==2.4.4",
-    "onnx==1.21.0",
+    "onnx==1.22.0",
     "onnxruntime==1.24.4",
     "orjson>=3.11.8",
     "pillow==12.2.0",
