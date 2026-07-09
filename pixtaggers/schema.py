@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, cast
+
+ModelName = Literal["camie-tagger-v2", "cl-tagger-v2"]
+SUPPORTED_MODELS: tuple[ModelName, ...] = ("camie-tagger-v2", "cl-tagger-v2")
 
 
 @dataclass
@@ -78,17 +81,22 @@ class Config:
     tagging_map: TaggingMap
     tagging_enable: TaggingEnabled
     threshold: TaggingThresholds
+    model: ModelName
     key: str
     discord_url: str | None = field(default=None)
 
     @classmethod
     def from_json(cls, json_data: dict) -> "Config":
+        model = json_data.get("model", "cl-tagger-v2")
+        if model not in SUPPORTED_MODELS:
+            raise ValueError(f"Unsupported model '{model}'. Expected one of: {', '.join(SUPPORTED_MODELS)}")
         return cls(
             szuru=SzuruConfig(**json_data["szuru"]),
             thumbnails=ThumbnailsConfig.from_dict(json_data["thumbnails"]),
             tagging_map=TaggingMap(**json_data["tagging_map"]),
             tagging_enable=TaggingEnabled(**json_data["tagging_enable"]),
             threshold=TaggingThresholds(**json_data["threshold"]),
+            model=cast(ModelName, model),
             key=json_data["key"],
             discord_url=json_data.get("discord_url"),
         )

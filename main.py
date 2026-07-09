@@ -9,11 +9,15 @@ import orjson
 from blacksheep import Application, FromJSON, FromQuery, accepted, get, json, post, status_code
 from pydantic import BaseModel
 
-from pixtaggers.camiedetect import MODEL_PATH, CamieSession
+from pixtaggers.camiedetect import MODEL_PATH as CAMIE_MODEL_PATH
+from pixtaggers.camiedetect import CamieSession
+from pixtaggers.cldetect import MODEL_PATH as CL_MODEL_PATH
+from pixtaggers.cldetect import ClTaggerSession
+from pixtaggers.commondetect import BaseTaggerSession
 from pixtaggers.discordhook import DiscordHook
 from pixtaggers.im_sess import Image
 from pixtaggers.img_helpers import ModelThreshold, resize_by_longest_side
-from pixtaggers.schema import Config, SimpleSnapshot
+from pixtaggers.schema import Config, ModelName, SimpleSnapshot
 from pixtaggers.szurubooru import SimplePost, SzurubooruClient
 from pixtaggers.video_frames import extract_frames_from_video
 
@@ -26,14 +30,24 @@ BG_CHECK = re.compile(r"_?background$", re.IGNORECASE)
 app = Application()
 
 
+def init_tagger_session(model: ModelName, threshold: ModelThreshold, top_k: int) -> BaseTaggerSession:
+    match model:
+        case "camie-tagger-v2":
+            return CamieSession(CAMIE_MODEL_PATH, threshold, top_k)
+        case "cl-tagger-v2":
+            return ClTaggerSession(CL_MODEL_PATH, threshold, top_k)
+        case _:
+            raise ValueError(f"Unsupported tagger model: {model}")
+
+
 @app.lifespan
 async def lifespan():
     global GLOBAL_TAGS
 
     model_threshold = ModelThreshold(
         config_data.threshold.general,
-        config_data.threshold.media,
         config_data.threshold.characters,
+        config_data.threshold.media,
         config_data.threshold.rating,
     )
 
@@ -44,10 +58,10 @@ async def lifespan():
 
     webhook_svc = DiscordHook(config_data.discord_url, host_urL=config_data.szuru.host)
     app.services.register(DiscordHook, instance=webhook_svc)
-    print("Registering ONNX client...")
-    async with CamieSession(MODEL_PATH, model_threshold, config_data.threshold.top_k) as session:
-        app.services.register(CamieSession, instance=session)
-        yield
+    print(f"Registering ONNX client ({config_data.model})...")
+    async with init_tagger_session(config_data.model, model_threshold, config_data.threshold.top_k) as session:
+        app.services.register(BaseTaggerSession, instance=session)
+        yield  # noqa: ASYNC119
 
     await szuru_session.close()
 
@@ -122,7 +136,7 @@ async def maybe_upload_video_frame_as_thumbnail(post: SimplePost, client: Szurub
 
 
 async def work_auto_tag_process(
-    post_id: str, client: SzurubooruClient, camie_session: CamieSession, discord: DiscordHook
+    post_id: str, client: SzurubooruClient, tagger_session: BaseTaggerSession, discord: DiscordHook
 ) -> bool:
     global GLOBAL_TAGS
 
@@ -152,7 +166,7 @@ async def work_auto_tag_process(
 
             print("Running detection model...")
             try:
-                tags_to_add = await camie_session.detect(downloaded_image)
+                tags_to_add = await tagger_session.detect(downloaded_image)
                 print(f"Model suggested {tags_to_add.count()} tags for post ID {post_id}, rating {tags_to_add.rating}")
             except Exception as e:
                 print(f"Error running detection model for post ID {post_id}: {e}")
@@ -236,7 +250,7 @@ async def work_auto_tag_process(
                         presel_thumb_frame = frame_bytes
                     try:
                         print(f"Running detection model for a video frame in post ID {post_id} (frame {img_counter})")
-                        frame_tags = await camie_session.detect(frame_bytes)
+                        frame_tags = await tagger_session.detect(frame_bytes)
                         meta_new_tags.extend(frame_tags.meta)
                         general_new_tags.extend(frame_tags.general)
                         media_new_tags.extend(frame_tags.media)
@@ -342,7 +356,7 @@ async def work_auto_tag_process(
                 for frame_bytes in frames:
                     try:
                         print(f"Running detection model for a ugoira frame in post ID {post_id} (frame {img_counter})")
-                        frame_tags = await camie_session.detect(frame_bytes)
+                        frame_tags = await tagger_session.detect(frame_bytes)
                         meta_new_tags.extend(frame_tags.meta)
                         general_new_tags.extend(frame_tags.general)
                         media_new_tags.extend(frame_tags.media)
@@ -417,12 +431,12 @@ async def work_auto_tag_process(
 
 
 async def work_auto_tag_process_multiple(
-    post_ids: list[int], client: SzurubooruClient, camie_session: CamieSession, discord: DiscordHook
+    post_ids: list[int], client: SzurubooruClient, tagger_session: BaseTaggerSession, discord: DiscordHook
 ):
     # Rather than all of them, do one by one
     failure = 0
     for post_id in post_ids:
-        success = await work_auto_tag_process(str(post_id), client, camie_session, discord)
+        success = await work_auto_tag_process(str(post_id), client, tagger_session, discord)
         if not success:
             failure += 1
     print(f"Completed auto-tag process for post IDs: {', '.join(str(pid) for pid in post_ids)}")
@@ -436,7 +450,11 @@ def hello():
 
 @post("/webhooks")
 def handle_webhook(
-    camie_session: CamieSession, client: SzurubooruClient, discord: DiscordHook, data: FromJSON[dict], t: FromQuery[str]
+    tagger_session: BaseTaggerSession,
+    client: SzurubooruClient,
+    discord: DiscordHook,
+    data: FromJSON[dict],
+    t: FromQuery[str],
 ):
     payload = data.value
     snapshot = SimpleSnapshot(
@@ -453,7 +471,7 @@ def handle_webhook(
         return accepted("ignored operation other than 'created'")
 
     # queue the tagging process in background
-    asyncio.create_task(work_auto_tag_process(snapshot.id, client, camie_session, discord))  # noqa: RUF006
+    asyncio.create_task(work_auto_tag_process(snapshot.id, client, tagger_session, discord))  # noqa: RUF006
 
     return accepted()
 
@@ -479,7 +497,7 @@ class ManualTagUpdateRequestModel(BaseModel):
 
 @post("/tag")
 def manual_tag_update(
-    camie_session: CamieSession,
+    tagger_session: BaseTaggerSession,
     client: SzurubooruClient,
     discord: DiscordHook,
     data: FromJSON[ManualTagUpdateRequestModel],
@@ -492,7 +510,7 @@ def manual_tag_update(
     if config_data.key != t.value:
         return status_code(401, "Unauthorized")
 
-    asyncio.create_task(work_auto_tag_process_multiple(all_post_ids, client, camie_session, discord))  # noqa: RUF006
+    asyncio.create_task(work_auto_tag_process_multiple(all_post_ids, client, tagger_session, discord))  # noqa: RUF006
 
     return accepted("Tag update process started for post IDs: " + ", ".join(str(pid) for pid in all_post_ids))
 
