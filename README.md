@@ -33,4 +33,10 @@ This is used to verify that the request is coming from an authorized source and 
 
 Get both the `camie-tagger-v2.onnx` and `camie-tagger-v2-metadata.json` file from here: https://huggingface.co/Camais03/camie-tagger-v2/tree/main
 
-Download and place them in the `./pixtaggers/models/` directory.
+Download and place them in the `./pixtaggers/models/camie-tagger-v2` directory.
+Or use the huggingface-cli to download the model directly to the correct directory:
+
+```bash
+hf download hf://Camais03/camie-tagger-v2/camie-tagger-v2.onnx --local-dir ./pixtaggers/models/camie-tagger-v2
+hf download hf://Camais03/camie-tagger-v2/camie-tagger-v2-metadata.json --local-dir ./pixtaggers/models/camie-tagger-v2
+```

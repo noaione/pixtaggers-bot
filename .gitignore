@@ -1,7 +1,10 @@
-**/models/*.onnx
-**/models/*.json
+**/models/**/*.onnx
+**/models/**/*.onnx.data
+**/models/**/*.json
+**/models/**/*.npz
 .venv/
 .env/
+.cache/
 venv/
 engine-data/
 
