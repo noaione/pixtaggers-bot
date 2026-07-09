@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Literal, TypeAlias, TypedDict
+from typing import Literal, NotRequired, TypeAlias, TypedDict
 
 from .im_sess import Image
 
@@ -9,6 +9,8 @@ RatingTag: TypeAlias = Literal["safe", "sketchy", "unsafe"]
 
 
 class TagDetectionResult(TypedDict):
+    meta: NotRequired[dict[str, float]]
+    """Optional model-provided meta tags."""
     general: dict[str, float]
     """The value is the score of the tag, not a count."""
     characters: dict[str, float]
