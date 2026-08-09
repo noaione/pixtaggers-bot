@@ -1,4 +1,4 @@
-import pillow_jxl  # noqa: F401
+import pillow_jxl  # ruff: ignore[unused-import]
 from PIL import Image
 from pillow_heif import register_heif_opener
 

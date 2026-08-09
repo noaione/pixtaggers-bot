@@ -19,7 +19,7 @@ from pixtaggers.im_sess import Image
 from pixtaggers.img_helpers import ModelThreshold, resize_by_longest_side
 from pixtaggers.schema import Config, ModelName, SimpleSnapshot
 from pixtaggers.szurubooru import SimplePost, SzurubooruClient
-from pixtaggers.video_frames import extract_frames_from_video
+from pixtaggers.video_frames import extract_frames_from_animation, extract_frames_from_video
 
 ROOT_DIR = Path(__file__).parent.resolve()
 config = ROOT_DIR / "config.json"
@@ -64,6 +64,7 @@ async def lifespan():
     )
     print("Loading cached tags and checking for new tags...")
     GLOBAL_TAGS = set(await szuru_session.get_current_tags())
+    print(f"Loaded {len(GLOBAL_TAGS)} tags from cache")
     app.services.register(SzurubooruClient, instance=szuru_session)
 
     webhook_svc = DiscordHook(config_data.discord_url, host_urL=config_data.szuru.host)
@@ -250,12 +251,17 @@ async def work_auto_tag_process(
 
             presel_thumb_frame = None
             try:
-                ugoira_data = await client.download_image(post_data["image_url"])
-                print(f"Downloaded media for post ID {post_id}, size: {len(ugoira_data)} bytes")
+                video_data = await client.download_image(post_data["image_url"])
+                print(f"Downloaded media for post ID {post_id}, size: {len(video_data)} bytes")
 
-                frames = extract_frames_from_video(
-                    video_data=ugoira_data, num_frames=config_data.thumbnails.video.extract
-                )
+                if post_data["kind"] == "animation":
+                    frames = extract_frames_from_animation(
+                        video_data, num_frames=config_data.thumbnails.video.extract
+                    )
+                else:
+                    frames = extract_frames_from_video(
+                        video_data, num_frames=config_data.thumbnails.video.extract
+                    )
                 img_counter = 0
                 for frame_bytes in frames:
                     if presel_thumb_frame is None:
@@ -338,7 +344,8 @@ async def work_auto_tag_process(
                 new_post is not None and
                 "generated" in new_post["thumbnail_url"] and
                 presel_thumb_frame is not None and
-                config_data.thumbnails.video.enabled
+                config_data.thumbnails.video.enabled and
+                post_data["kind"] == "video"
             ):
                 return await maybe_upload_video_frame_as_thumbnail(new_post, client, presel_thumb_frame)
             return True
