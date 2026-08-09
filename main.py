@@ -60,6 +60,7 @@ async def lifespan():
         config_data.szuru.user,
         config_data.szuru.token,
         tag_cache_path=tag_cache_path,
+        http_impersonate=config_data.szuru.http_impersonate,
     )
     print("Loading cached tags and checking for new tags...")
     GLOBAL_TAGS = set(await szuru_session.get_current_tags())

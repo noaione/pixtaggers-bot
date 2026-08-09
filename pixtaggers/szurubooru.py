@@ -6,9 +6,13 @@ from io import BytesIO
 from pathlib import Path
 from typing import AsyncGenerator, Literal, TypedDict
 
+import curl_cffi
 import httpx
 
 BACKOFF_BASE = 0.75  # Base backoff time in seconds for retries
+HttpMethod = Literal[
+    "GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "TRACE", "PATCH", "QUERY"
+]
 
 
 class SimplePost(TypedDict):
@@ -35,6 +39,7 @@ class SzurubooruClient:
         username: str,
         token: str,
         tag_cache_path: str | Path | None = ".cache/szurubooru-tags.json",
+        http_impersonate: str | None = None,
     ):
         """
         Initializes the client with the base URL and API credentials.
@@ -48,23 +53,34 @@ class SzurubooruClient:
 
         self.tag_cache_path = Path(tag_cache_path) if tag_cache_path is not None else None
         self._tag_cache_write_lock = asyncio.Lock()
-        self.session = httpx.AsyncClient(
-            timeout=30.0,
-            limits=httpx.Limits(max_connections=100, max_keepalive_connections=30),
-        )
+        self.http_impersonate = http_impersonate
+        if not http_impersonate:
+            self.session = httpx.AsyncClient(
+                timeout=30.0,
+                limits=httpx.Limits(max_connections=100, max_keepalive_connections=30),
+            )
+        else:
+            self.session = curl_cffi.AsyncSession(
+                timeout=30.0,
+                max_clients=100,
+                impersonate=http_impersonate,
+            )
         self.session.headers.update({
             "Authorization": f"Token {encoded_auth}",
             "Accept": "application/json",
         })
 
     async def close(self):
-        await self.session.aclose()
+        if isinstance(self.session, httpx.AsyncClient):
+            await self.session.aclose()
+        elif isinstance(self.session, curl_cffi.AsyncSession):
+            await self.session.close()
 
-    async def _request(self, method: str, endpoint: str, **kwargs) -> dict:
+    async def _request(self, method: HttpMethod, endpoint: str, **kwargs) -> dict:
         """Internal helper for API requests."""
         url = f"{self.api_url}/{endpoint.lstrip('/')}"
         # Check if kwargs has "files", if yes we should not set "Content-Type" header to "application/json"
-        if "files" not in kwargs:
+        if "files" not in kwargs and "multipart" not in kwargs:
             kwargs.setdefault("headers", {})["Content-Type"] = "application/json"
         response = await self.session.request(method, url, **kwargs)
         if response.status_code >= 400:
@@ -280,10 +296,20 @@ class SzurubooruClient:
         Updates the thumbnail URL of a specific post.
         Requires the current 'version' of the post for optimistic concurrency control.
         """
-        buffer_io = BytesIO(thumbnail_data)
-        token_resp = await self._request(
-            "POST", "uploads", files={"content": (None, buffer_io, "image/jpeg")}
-        )
+        if self.http_impersonate:
+            from curl_cffi import CurlMime
+
+            multipart = CurlMime()
+            multipart.addpart(name="content", data=thumbnail_data, content_type="image/jpeg")
+            try:
+                token_resp = await self._request("POST", "uploads", multipart=multipart)
+            finally:
+                multipart.close()
+        else:
+            buffer_io = BytesIO(thumbnail_data)
+            token_resp = await self._request(
+                "POST", "uploads", files={"content": (None, buffer_io, "image/jpeg")}
+            )
         payload = {"version": version, "thumbnailToken": token_resp["token"]}
         await self._repeated_post_update(post_id, version, payload)
 

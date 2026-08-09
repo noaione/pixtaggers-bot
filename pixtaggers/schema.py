@@ -18,6 +18,7 @@ class SzuruConfig:
     user: str
     token: str
     tag_cache_path: str = ".cache/szurubooru-tags.json"
+    http_impersonate: str | None = None
 
 
 @dataclass

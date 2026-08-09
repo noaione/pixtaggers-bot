@@ -5,17 +5,18 @@ description = "A simple robot that accepts webhook requests and tags images usin
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "av==17.0.1",
-    "blacksheep>=2.6.2",
+    "av==18.0.0",
+    "blacksheep>=2.6.3",
+    "curl-cffi>=0.16.0",
     "httpx==0.28.1",
-    "numpy==2.4.4",
+    "numpy==2.5.1",
     "onnx==1.22.0",
-    "onnxruntime==1.24.4",
-    "orjson>=3.11.8",
-    "pillow==12.2.0",
-    "pillow-heif>=1.4.0",
-    "pillow-jxl-plugin>=1.3.7",
-    "pydantic==2.13.3",
+    "onnxruntime==1.28.0",
+    "orjson>=3.11.9",
+    "pillow==12.3.0",
+    "pillow-heif>=1.5.0",
+    "pillow-jxl-plugin>=1.3.8",
+    "pydantic==2.13.4",
     "torch>=2.13.0",
-    "uvicorn>=0.46.0",
+    "uvicorn>=0.52.1",
 ]

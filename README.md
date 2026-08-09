@@ -34,6 +34,11 @@ Tag list startup cache
 
 The complete Szurubooru tag list is stored at `.cache/szurubooru-tags.json` after first fetch. Later starts load it first, fetch tags sorted by creation time, stop after finding a cached tag, merge results, and save the cache again. Configure `szuru.tag_cache_path` in `config.json` when needed.
 
+HTTP backend
+------------
+
+Default backend is `httpx`. Set `szuru.http_impersonate` to a supported target such as `chrome`, `chrome131`, or `safari` to automatically use `curl_cffi`. Leave it `null` or empty to keep `httpx`. `curl_cffi` handles browser-style TLS and HTTP/2 fingerprints.
+
 ## Where to download models?
 
 Get both the `camie-tagger-v2.onnx` and `camie-tagger-v2-metadata.json` file from here: https://huggingface.co/Camais03/camie-tagger-v2/tree/main
