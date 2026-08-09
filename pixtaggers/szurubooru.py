@@ -10,6 +10,7 @@ import curl_cffi
 import httpx
 
 BACKOFF_BASE = 0.75  # Base backoff time in seconds for retries
+USER_AGENT = "pixtaggers-bot/0.1.0"
 HttpMethod = Literal[
     "GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "TRACE", "PATCH", "QUERY"
 ]
@@ -68,6 +69,7 @@ class SzurubooruClient:
         self.session.headers.update({
             "Authorization": f"Token {encoded_auth}",
             "Accept": "application/json",
+            "User-Agent": USER_AGENT,
         })
 
     async def close(self):
