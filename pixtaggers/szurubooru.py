@@ -1,10 +1,12 @@
 import asyncio
 import base64
+import json
+import time
 from io import BytesIO
+from pathlib import Path
 from typing import AsyncGenerator, Literal, TypedDict
 
 import httpx
-from tqdm import tqdm
 
 BACKOFF_BASE = 0.75  # Base backoff time in seconds for retries
 
@@ -27,7 +29,13 @@ class SimpleTag(TypedDict):
 
 
 class SzurubooruClient:
-    def __init__(self, base_url: str, username: str, token: str):
+    def __init__(
+        self,
+        base_url: str,
+        username: str,
+        token: str,
+        tag_cache_path: str | Path | None = ".cache/szurubooru-tags.json",
+    ):
         """
         Initializes the client with the base URL and API credentials.
         """
@@ -38,7 +46,12 @@ class SzurubooruClient:
         auth_string = f"{username}:{token}".encode("utf-8")
         encoded_auth = base64.b64encode(auth_string).decode("utf-8")
 
-        self.session = httpx.AsyncClient(timeout=30.0)
+        self.tag_cache_path = Path(tag_cache_path) if tag_cache_path is not None else None
+        self._tag_cache_write_lock = asyncio.Lock()
+        self.session = httpx.AsyncClient(
+            timeout=30.0,
+            limits=httpx.Limits(max_connections=100, max_keepalive_connections=30),
+        )
         self.session.headers.update({
             "Authorization": f"Token {encoded_auth}",
             "Accept": "application/json",
@@ -91,22 +104,75 @@ class SzurubooruClient:
                     raise
         raise Exception(f"Failed to update post {post_id} after {max_retries} attempts due to version conflicts.")
 
+    def _read_tag_cache(self) -> tuple[list[str], float] | None:
+        if self.tag_cache_path is None or not self.tag_cache_path.is_file():
+            return None
+
+        try:
+            payload = json.loads(self.tag_cache_path.read_text(encoding="utf-8"))
+            if (
+                not isinstance(payload, dict)
+                or payload.get("base_url") != self.base_url
+                or not isinstance(payload.get("tags"), list)
+            ):
+                return None
+            tags = [tag for tag in payload["tags"] if isinstance(tag, str)]
+            return list(dict.fromkeys(tags)), float(payload["fetched_at"])
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return None
+
+    async def _write_tag_cache(self, tags: list[str], fetched_at: float | None = None) -> None:
+        if self.tag_cache_path is None:
+            return
+
+        path = self.tag_cache_path
+        payload = {
+            "base_url": self.base_url,
+            "fetched_at": time.time() if fetched_at is None else fetched_at,
+            "tags": list(dict.fromkeys(tags)),
+        }
+        serialized = json.dumps(payload, separators=(",", ":"))
+
+        def write_cache() -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temporary_path = path.with_name(f".{path.name}.tmp")
+            temporary_path.write_text(serialized, encoding="utf-8")
+            temporary_path.replace(path)
+
+        async with self._tag_cache_write_lock:
+            await asyncio.to_thread(write_cache)
+
     async def get_current_tags(self) -> list[str]:
-        """Fetches the list of all tags currently in the system."""
+        """Loads cached tags, fetches newer tags, then stores the merged list."""
+        cached = self._read_tag_cache()
+        tags = await self._fetch_current_tags(cached[0] if cached is not None else None)
+        await self._write_tag_cache(tags)
+        return tags
+
+    async def _fetch_current_tags(self, cached_tags: list[str] | None = None) -> list[str]:
+        """Fetches tags newest-first until a cached tag is found."""
         offset = 0
         limit = 100
-        all_tags = []
+        all_tags = list(cached_tags or [])
+        cached_tag_set = set(cached_tags or [])
         while True:
-            params = {"offset": offset, "limit": limit}
+            params = {"query": "sort:creation-time", "offset": offset, "limit": limit}
             data = await self._request("GET", "tags", params=params)
             tags = data.get("results", [])
             if not tags:
                 break
 
+            found_cached_tag = False
             for tag in tags:
-                all_tags.extend(tag["names"])  # Add all names and aliases to the set of current tags
+                names = tag["names"]
+                all_tags.extend(names)
+                if cached_tag_set.intersection(names):
+                    found_cached_tag = True
+
+            if found_cached_tag:
+                break
             offset += limit
-        return all_tags
+        return list(dict.fromkeys(all_tags))
 
     async def create_tag(self, tag_name: str, category: str) -> dict:
         """Creates a new tag in the system."""
@@ -145,15 +211,9 @@ class SzurubooruClient:
         """
         Downloads an image from the given URL.
         """
-        async with self.session.stream("GET", url) as response:
-            response.raise_for_status()
-            total = int(response.headers.get("Content-Length", 0)) or None
-            chunks: list[bytes] = []
-            with tqdm(total=total, unit="B", unit_scale=True, unit_divisor=1024, desc="Downloading") as bar:
-                async for chunk in response.aiter_bytes(chunk_size=8192):
-                    chunks.append(chunk)
-                    bar.update(len(chunk))
-            return b"".join(chunks)
+        response = await self.session.get(url)
+        response.raise_for_status()
+        return response.content
 
     async def get_post(self, post_id: int) -> SimplePost:
         """
@@ -230,9 +290,15 @@ class SzurubooruClient:
     async def batch_create_tags(self, tags: list[str], category: str):
         if not tags:
             return
+        created_tags = []
         for tag in tags:
             try:
                 await self.create_tag(tag, category)
+                created_tags.append(tag)
                 print(f"Created tag '{tag}' in category '{category}'.")
             except Exception as e:
                 print(f"Error creating tag '{tag}': {e}")
+        cached = self._read_tag_cache()
+        if cached is not None and created_tags:
+            cached_tags, fetched_at = cached
+            await self._write_tag_cache(cached_tags + created_tags, fetched_at=fetched_at)

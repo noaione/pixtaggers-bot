@@ -2,7 +2,8 @@
     "szuru": {
         "host": "https://your.szuru.instance",
         "user": "username",
-        "token": "token-that-can-change-stuff"
+        "token": "token-that-can-change-stuff",
+        "tag_cache_path": ".cache/szurubooru-tags.json"
     },
     "thumbnails": {
         "target_size": 600,

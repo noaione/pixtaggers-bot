@@ -17,6 +17,7 @@ class SzuruConfig:
     host: str
     user: str
     token: str
+    tag_cache_path: str = ".cache/szurubooru-tags.json"
 
 
 @dataclass

@@ -51,19 +51,29 @@ async def lifespan():
         config_data.threshold.rating,
     )
 
-    szuru_session = SzurubooruClient(config_data.szuru.host, config_data.szuru.user, config_data.szuru.token)
-    print("Fetching available tags from Szurubooru...")
+    tag_cache_path = Path(config_data.szuru.tag_cache_path)
+    if not tag_cache_path.is_absolute():
+        tag_cache_path = ROOT_DIR / tag_cache_path
+
+    szuru_session = SzurubooruClient(
+        config_data.szuru.host,
+        config_data.szuru.user,
+        config_data.szuru.token,
+        tag_cache_path=tag_cache_path,
+    )
+    print("Loading cached tags and checking for new tags...")
     GLOBAL_TAGS = set(await szuru_session.get_current_tags())
     app.services.register(SzurubooruClient, instance=szuru_session)
 
     webhook_svc = DiscordHook(config_data.discord_url, host_urL=config_data.szuru.host)
     app.services.register(DiscordHook, instance=webhook_svc)
     print(f"Registering ONNX client ({config_data.model})...")
-    async with init_tagger_session(config_data.model, model_threshold, config_data.threshold.top_k) as session:
-        app.services.register(BaseTaggerSession, instance=session)
-        yield  # noqa: ASYNC119
-
-    await szuru_session.close()
+    try:
+        async with init_tagger_session(config_data.model, model_threshold, config_data.threshold.top_k) as session:
+            app.services.register(BaseTaggerSession, instance=session)
+            yield  # ruff: ignore[yield-in-context-manager-in-async-generator]
+    finally:
+        await szuru_session.close()
 
 
 def find_missing_tags(tags: list[str], current_tags: set[str]) -> list[str]:
@@ -471,7 +481,7 @@ def handle_webhook(
         return accepted("ignored operation other than 'created'")
 
     # queue the tagging process in background
-    asyncio.create_task(work_auto_tag_process(snapshot.id, client, tagger_session, discord))  # noqa: RUF006
+    asyncio.create_task(work_auto_tag_process(snapshot.id, client, tagger_session, discord))  # ruff: ignore[asyncio-dangling-task]
 
     return accepted()
 
@@ -510,7 +520,7 @@ def manual_tag_update(
     if config_data.key != t.value:
         return status_code(401, "Unauthorized")
 
-    asyncio.create_task(work_auto_tag_process_multiple(all_post_ids, client, tagger_session, discord))  # noqa: RUF006
+    asyncio.create_task(work_auto_tag_process_multiple(all_post_ids, client, tagger_session, discord))  # ruff: ignore[asyncio-dangling-task]
 
     return accepted("Tag update process started for post IDs: " + ", ".join(str(pid) for pid in all_post_ids))
 
