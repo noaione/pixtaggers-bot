@@ -72,6 +72,7 @@ async def lifespan():
     try:
         async with init_tagger_session(config_data.model, model_threshold, config_data.threshold.top_k) as session:
             app.services.register(BaseTaggerSession, instance=session)
+            print(f"ONNX session is ready, initiated with {config_data.model}")
             yield  # ruff: ignore[yield-in-context-manager-in-async-generator]
     finally:
         await szuru_session.close()
