@@ -477,9 +477,9 @@ def handle_webhook(
 ):
     payload = data.value
     snapshot = SimpleSnapshot(
-        id=payload.get("resource_id", ""),
+        id=payload.get("resource_id", payload.get("id", "")),  # try both since oxibooru changes something
         operation=payload.get("operation", "unknown"),
-        type=payload.get("resource_type", "unknown"),
+        type=payload.get("resource_type", payload.get("type", "unknown")),  # try both since oxibooru changes something
     )
     if config_data.key != t.value:
         return status_code(401, "Unauthorized")
