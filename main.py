@@ -17,6 +17,8 @@ from pixtaggers.commondetect import BaseTaggerSession
 from pixtaggers.discordhook import DiscordHook
 from pixtaggers.im_sess import Image
 from pixtaggers.img_helpers import ModelThreshold, resize_by_longest_side
+from pixtaggers.pixaidetect import MODEL_PATH as PIXAI_MODEL_PATH
+from pixtaggers.pixaidetect import PixAiTaggerSession
 from pixtaggers.schema import Config, ModelName, SimpleSnapshot
 from pixtaggers.szurubooru import SimplePost, SzurubooruClient
 from pixtaggers.video_frames import extract_frames_from_animation, extract_frames_from_video
@@ -36,6 +38,8 @@ def init_tagger_session(model: ModelName, threshold: ModelThreshold, top_k: int)
             return CamieSession(CAMIE_MODEL_PATH, threshold, top_k)
         case "cl-tagger-v2":
             return ClTaggerSession(CL_MODEL_PATH, threshold, top_k)
+        case "pixai-tagger-v1":
+            return PixAiTaggerSession(PIXAI_MODEL_PATH, threshold, top_k)
         case _:
             raise ValueError(f"Unsupported tagger model: {model}")
 

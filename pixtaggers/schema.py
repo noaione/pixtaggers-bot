@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Literal, cast
 
-ModelName = Literal["camie-tagger-v2", "cl-tagger-v2"]
-SUPPORTED_MODELS: tuple[ModelName, ...] = ("camie-tagger-v2", "cl-tagger-v2")
+ModelName = Literal["camie-tagger-v2", "cl-tagger-v2", "pixai-tagger-v1"]
+SUPPORTED_MODELS: tuple[ModelName, ...] = ("camie-tagger-v2", "cl-tagger-v2", "pixai-tagger-v1")
 
 
 @dataclass
