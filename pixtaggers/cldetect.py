@@ -10,6 +10,7 @@ from .commondetect import BaseTaggerSession
 from .im_sess import Image
 from .img_helpers import ModelThreshold, RatingTag, TagDetectionResult, load_image
 from .onnx_session import prepare_model_runtime_builders
+from .schema import Config
 
 TARGET_SIZE = 384
 THIS_DIR = Path(__file__).parent.resolve()
@@ -252,6 +253,7 @@ class ClTaggerSession(BaseTaggerSession):
     def __init__(
         self,
         model_path: Path,
+        config: Config,
         threshold: ModelThreshold | None = None,
         top_k: int = 64,
         *,
@@ -259,7 +261,7 @@ class ClTaggerSession(BaseTaggerSession):
         metrics_path: Path = MODEL_TAG_METRICS_PATH,
         ood_ref_path: Path = MODEL_OOD_REF_PATH,
     ):
-        super().__init__(model_path, threshold or ModelThreshold(0.30, 0.30, 0.30, 0.0), top_k)
+        super().__init__(model_path, config, threshold or ModelThreshold(0.30, 0.30, 0.30, 0.0), top_k)
         self._vocab_path = vocab_path
         self._metrics_path = metrics_path
         self._ood_ref_path = ood_ref_path

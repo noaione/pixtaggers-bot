@@ -9,6 +9,7 @@ import onnxruntime as ort
 from .im_sess import Image
 from .img_helpers import ModelThreshold, RatingTag, TagDetectionResult, has_alpha_channel
 from .onnx_session import prepare_model_runtime_builders
+from .schema import Config
 
 
 @dataclass
@@ -29,11 +30,12 @@ def splat_tags(data: dict[str, float]) -> list[str]:
 
 
 class BaseTaggerSession(ABC):
-    def __init__(self, model_path: Path, threshold: ModelThreshold, top_k: int = 64):
+    def __init__(self, model_path: Path, config: Config, threshold: ModelThreshold, top_k: int = 64):
         self._model_path = model_path
         self._threshold = threshold
         self._top_k = top_k
         self._session: ort.InferenceSession | None = None
+        self._config = config
 
     async def __aenter__(self):
         self.load()
@@ -43,7 +45,12 @@ class BaseTaggerSession(ABC):
         self.unload()
 
     def load(self):
-        self._session = prepare_model_runtime_builders(self._model_path)
+        self._session = prepare_model_runtime_builders(
+            self._model_path,
+            device_id=self._config.device_id,
+            is_verbose=self._config.onnx_verbose,
+            with_nvrtx=self._config.trt_prioritize == "rtx"
+        )
 
     def unload(self):
         self._session = None

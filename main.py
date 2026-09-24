@@ -1,6 +1,7 @@
 import asyncio
 import random
 import re
+import time
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
@@ -17,6 +18,8 @@ from pixtaggers.commondetect import BaseTaggerSession
 from pixtaggers.discordhook import DiscordHook
 from pixtaggers.im_sess import Image
 from pixtaggers.img_helpers import ModelThreshold, resize_by_longest_side
+from pixtaggers.pixaidetect import MODEL_PATH as PIXAI_MODEL_PATH
+from pixtaggers.pixaidetect import PixAiTaggerSession
 from pixtaggers.schema import Config, ModelName, SimpleSnapshot
 from pixtaggers.szurubooru import SimplePost, SzurubooruClient
 from pixtaggers.video_frames import extract_frames_from_animation, extract_frames_from_video
@@ -30,12 +33,14 @@ BG_CHECK = re.compile(r"_?background$", re.IGNORECASE)
 app = Application()
 
 
-def init_tagger_session(model: ModelName, threshold: ModelThreshold, top_k: int) -> BaseTaggerSession:
+def init_tagger_session(model: ModelName, config: Config, threshold: ModelThreshold, top_k: int) -> BaseTaggerSession:
     match model:
         case "camie-tagger-v2":
-            return CamieSession(CAMIE_MODEL_PATH, threshold, top_k)
+            return CamieSession(CAMIE_MODEL_PATH, config, threshold, top_k)
         case "cl-tagger-v2":
-            return ClTaggerSession(CL_MODEL_PATH, threshold, top_k)
+            return ClTaggerSession(CL_MODEL_PATH, config, threshold, top_k)
+        case "pixai-tagger-v1":
+            return PixAiTaggerSession(PIXAI_MODEL_PATH, config, threshold, top_k)
         case _:
             raise ValueError(f"Unsupported tagger model: {model}")
 
@@ -71,7 +76,9 @@ async def lifespan():
     app.services.register(DiscordHook, instance=webhook_svc)
     print(f"Registering ONNX client ({config_data.model})...")
     try:
-        async with init_tagger_session(config_data.model, model_threshold, config_data.threshold.top_k) as session:
+        async with init_tagger_session(
+            config_data.model, config_data, model_threshold, config_data.threshold.top_k
+        ) as session:
             app.services.register(BaseTaggerSession, instance=session)
             print(f"ONNX session is ready, initiated with {config_data.model}")
             yield  # ruff: ignore[yield-in-context-manager-in-async-generator]
@@ -179,8 +186,11 @@ async def work_auto_tag_process(
 
             print("Running detection model...")
             try:
+                start_time = time.monotonic()
                 tags_to_add = await tagger_session.detect(downloaded_image)
+                end_time = time.monotonic()
                 print(f"Model suggested {tags_to_add.count()} tags for post ID {post_id}, rating {tags_to_add.rating}")
+                print(f" Model took {end_time - start_time:.2f} seconds to run")
             except Exception as e:
                 print(f"Error running detection model for post ID {post_id}: {e}")
                 await discord.report_error(post_id_int, f"Error running detection model: {e}")
