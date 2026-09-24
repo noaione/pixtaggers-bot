@@ -8,6 +8,7 @@ import onnxruntime as ort
 from .commondetect import BaseTaggerSession
 from .im_sess import Image
 from .img_helpers import ModelThreshold, RatingTag, TagDetectionResult, load_image
+from .schema import Config
 
 TARGET_SIZE = 1008
 THIS_DIR = Path(__file__).parent.resolve()
@@ -158,12 +159,23 @@ class PixAiTaggerSession(BaseTaggerSession):
     def __init__(
         self,
         model_path: Path,
+        config: Config,
         threshold: ModelThreshold | None = None,
         top_k: int = 64,
         *,
         tags_metadata_path: Path = TAGS_METADATA_PATH,
     ):
-        super().__init__(model_path, threshold or ModelThreshold(0.17, 0.27, 0.24, 0.41), top_k)
+        super().__init__(
+            model_path,
+            config,
+            threshold or ModelThreshold(
+                0.17,
+                0.27,
+                0.24,
+                0.41
+            ),
+            top_k
+        )
         self._ood_session: ort.InferenceSession | None = None
         self._tags_meta_path = tags_metadata_path
         self._tags_map: dict[str, Any] = {}

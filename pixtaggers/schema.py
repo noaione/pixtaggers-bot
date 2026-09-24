@@ -84,6 +84,9 @@ class Config:
     tagging_enable: TaggingEnabled
     threshold: TaggingThresholds
     model: ModelName
+    trt_prioritize: Literal["rtx", "trt"]
+    device_id: int
+    onnx_verbose: bool
     key: str
     discord_url: str | None = field(default=None)
 
@@ -92,6 +95,9 @@ class Config:
         model = json_data.get("model", "cl-tagger-v2")
         if model not in SUPPORTED_MODELS:
             raise ValueError(f"Unsupported model '{model}'. Expected one of: {', '.join(SUPPORTED_MODELS)}")
+        trt_prioritize = json_data.get("trt_prioritize", "trt").lower()
+        if trt_prioritize not in ("rtx", "trt"):
+            raise ValueError(f"Unsupported trt_prioritize '{trt_prioritize}'. Expected one of: 'rtx', 'trt'")
         return cls(
             szuru=SzuruConfig(**json_data["szuru"]),
             thumbnails=ThumbnailsConfig.from_dict(json_data["thumbnails"]),
@@ -101,4 +107,7 @@ class Config:
             model=cast(ModelName, model),
             key=json_data["key"],
             discord_url=json_data.get("discord_url"),
+            trt_prioritize=trt_prioritize,
+            device_id=json_data.get("device_id", 0),
+            onnx_verbose=json_data.get("onnx_verbose", False),
         )

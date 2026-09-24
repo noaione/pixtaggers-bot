@@ -36,6 +36,9 @@
         "top_k": 64
     },
     "model": "camie-tagger-v2",
+    "trt_prioritize": "trt",
+    "device_id": 0,
+    "onnx_verbose": false,
     "key": "some-random-key-for-authentication",
     "discord_url": null
 }

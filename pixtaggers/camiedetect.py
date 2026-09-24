@@ -8,6 +8,7 @@ import onnxruntime as ort
 from .commondetect import BaseTaggerSession
 from .im_sess import Image
 from .img_helpers import ModelThreshold, RatingTag, TagDetectionResult, load_image
+from .schema import Config
 
 TARGET_SIZE = 512
 
@@ -178,6 +179,7 @@ class CamieSession(BaseTaggerSession):
     def __init__(
         self,
         model_path: Path,
+        config: Config,
         threshold: ModelThreshold | None = None,
         top_k: int = 64,
         *,
@@ -185,6 +187,7 @@ class CamieSession(BaseTaggerSession):
     ):
         super().__init__(
             model_path,
+            config,
             threshold or ModelThreshold(
                 0.492,
                 0.614,

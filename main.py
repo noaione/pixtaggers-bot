@@ -33,14 +33,14 @@ BG_CHECK = re.compile(r"_?background$", re.IGNORECASE)
 app = Application()
 
 
-def init_tagger_session(model: ModelName, threshold: ModelThreshold, top_k: int) -> BaseTaggerSession:
+def init_tagger_session(model: ModelName, config: Config, threshold: ModelThreshold, top_k: int) -> BaseTaggerSession:
     match model:
         case "camie-tagger-v2":
-            return CamieSession(CAMIE_MODEL_PATH, threshold, top_k)
+            return CamieSession(CAMIE_MODEL_PATH, config, threshold, top_k)
         case "cl-tagger-v2":
-            return ClTaggerSession(CL_MODEL_PATH, threshold, top_k)
+            return ClTaggerSession(CL_MODEL_PATH, config, threshold, top_k)
         case "pixai-tagger-v1":
-            return PixAiTaggerSession(PIXAI_MODEL_PATH, threshold, top_k)
+            return PixAiTaggerSession(PIXAI_MODEL_PATH, config, threshold, top_k)
         case _:
             raise ValueError(f"Unsupported tagger model: {model}")
 
@@ -76,7 +76,9 @@ async def lifespan():
     app.services.register(DiscordHook, instance=webhook_svc)
     print(f"Registering ONNX client ({config_data.model})...")
     try:
-        async with init_tagger_session(config_data.model, model_threshold, config_data.threshold.top_k) as session:
+        async with init_tagger_session(
+            config_data.model, config_data, model_threshold, config_data.threshold.top_k
+        ) as session:
             app.services.register(BaseTaggerSession, instance=session)
             print(f"ONNX session is ready, initiated with {config_data.model}")
             yield  # ruff: ignore[yield-in-context-manager-in-async-generator]
