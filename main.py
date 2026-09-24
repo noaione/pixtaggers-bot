@@ -1,6 +1,7 @@
 import asyncio
 import random
 import re
+import time
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
@@ -183,8 +184,11 @@ async def work_auto_tag_process(
 
             print("Running detection model...")
             try:
+                start_time = time.monotonic()
                 tags_to_add = await tagger_session.detect(downloaded_image)
+                end_time = time.monotonic()
                 print(f"Model suggested {tags_to_add.count()} tags for post ID {post_id}, rating {tags_to_add.rating}")
+                print(f" Model took {end_time - start_time:.2f} seconds to run")
             except Exception as e:
                 print(f"Error running detection model for post ID {post_id}: {e}")
                 await discord.report_error(post_id_int, f"Error running detection model: {e}")

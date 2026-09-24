@@ -89,4 +89,5 @@ def prepare_model_runtime_builders(
 
     sess_opt = ort.SessionOptions()
     session = ort.InferenceSession(model_path, sess_options=sess_opt, providers=providers)
+    print("ONNX active providers:", session.get_providers())
     return session
