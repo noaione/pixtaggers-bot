@@ -79,3 +79,19 @@ hf download hf://cella110n/cl_tagger_v2/v2_01a/model_vocabulary.json --local-dir
 hf download hf://cella110n/cl_tagger_v2/v2_01a/model_ood_ref.npz --local-dir ./pixtaggers/models/cl-tagger-v2
 hf download hf://cella110n/cl_tagger_v2/v2_01a/model_tag_metrics.npz --local-dir ./pixtaggers/models/cl-tagger-v2
 ```
+
+### PixAI Tagger v1
+
+Download the following files from [PixAI Tagger v1 on Hugging Face](https://huggingface.co/noaione/pixai-tagger-v1.0-onnx) into `./pixtaggers/models/pixai-tagger-v1`:
+
+- `model.onnx`
+- `model.onnx.data`
+- `tags.json`
+
+Or use the Hugging Face CLI:
+
+```bash
+hf download hf://noaione/pixai-tagger-v1.0-onnx/model.onnx --local-dir ./pixtaggers/models/pixai-tagger-v1
+hf download hf://noaione/pixai-tagger-v1.0-onnx/model.onnx.data --local-dir ./pixtaggers/models/pixai-tagger-v1
+hf download hf://noaione/pixai-tagger-v1.0-onnx/tags.json --local-dir ./pixtaggers/models/pixai-tagger-v1
+```

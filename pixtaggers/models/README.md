@@ -6,6 +6,7 @@ The configured model is selected with `model` in `config.json`:
 
 - `camie-tagger-v2`
 - `cl-tagger-v2`
+- `pixai-tagger-v1`
 
 ### CamieTagger V2
 
@@ -27,3 +28,11 @@ I recommend using the `v2_01a` version.
 - `model_ood_ref.npz`
 
 The repository requires accepting its access conditions before downloading.
+
+### PixAI Tagger v1
+
+Get the following files from [PixAI Tagger v1 on Hugging Face](https://huggingface.co/noaione/pixai-tagger-v1.0-onnx) and save them to `./pixai-tagger-v1`:
+
+- `model.onnx`
+- `model.onnx.data`
+- `tags.json`
