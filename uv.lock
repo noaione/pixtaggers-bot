@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -26,7 +26,7 @@ version = "4.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-pixtaggers-bot-cpu' and extra == 'extra-14-pixtaggers-bot-nvidia-cuda') or (extra == 'extra-14-pixtaggers-bot-cpu' and extra == 'extra-14-pixtaggers-bot-nvidia-trt') or (extra == 'extra-14-pixtaggers-bot-nvidia-cuda' and extra == 'extra-14-pixtaggers-bot-nvidia-trt')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz", hash = "sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f", size = 260176, upload-time = "2026-07-12T20:29:07.082Z" }
 wheels = [
@@ -70,7 +70,7 @@ dependencies = [
     { name = "guardpost" },
     { name = "h11" },
     { name = "h2" },
-    { name = "httptools", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-14-pixtaggers-bot-cpu' and extra == 'extra-14-pixtaggers-bot-nvidia-cuda') or (extra == 'extra-14-pixtaggers-bot-cpu' and extra == 'extra-14-pixtaggers-bot-nvidia-trt') or (extra == 'extra-14-pixtaggers-bot-nvidia-cuda' and extra == 'extra-14-pixtaggers-bot-nvidia-trt')" },
+    { name = "httptools", marker = "platform_python_implementation != 'PyPy'" },
     { name = "itsdangerous" },
     { name = "rodi" },
 ]
@@ -114,7 +114,7 @@ name = "cffi"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-14-pixtaggers-bot-cpu' and extra == 'extra-14-pixtaggers-bot-nvidia-cuda') or (extra == 'extra-14-pixtaggers-bot-cpu' and extra == 'extra-14-pixtaggers-bot-nvidia-trt') or (extra == 'extra-14-pixtaggers-bot-nvidia-cuda' and extra == 'extra-14-pixtaggers-bot-nvidia-trt')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz", hash = "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be", size = 530807, upload-time = "2026-08-03T21:21:18.939Z" }
 wheels = [
@@ -199,7 +199,7 @@ name = "click"
 version = "8.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-14-pixtaggers-bot-cpu' and extra == 'extra-14-pixtaggers-bot-nvidia-cuda') or (extra == 'extra-14-pixtaggers-bot-cpu' and extra == 'extra-14-pixtaggers-bot-nvidia-trt') or (extra == 'extra-14-pixtaggers-bot-nvidia-cuda' and extra == 'extra-14-pixtaggers-bot-nvidia-trt')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/bb/63/f9e1ea081ce35720d8b92acde70daaedace594dc93b693c869e0d5910718/click-8.3.3.tar.gz", hash = "sha256:398329ad4837b2ff7cbe1dd166a4c0f8900c3ca3a218de04466f38f6497f18a2", size = 328061, upload-time = "2026-04-22T15:11:27.506Z" }
 wheels = [
@@ -352,11 +352,11 @@ wheels = [
 
 [[package]]
 name = "filelock"
-version = "3.29.7"
+version = "4.2.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/35/94/00f2059e4835eace3ae8fde680b932c496f8ec7bdc99168dfa53fb2e6b79/filelock-3.29.7.tar.gz", hash = "sha256:5b481979797ae69e72f0b389d89a80bdd585c260c5b3f1fb9c0a5ba9bb3f195d", size = 71521, upload-time = "2026-07-08T05:46:58.716Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/98/771d8ca889f220d7d7e352addf500666368f0fd081c6080a83767580c6e4/filelock-4.2.1.tar.gz", hash = "sha256:c4c937ccac2a813cee448e662a56366cfb374c0f8702e75f295c412cc1c5d5a3", size = 650997, upload-time = "2026-10-17T16:48:14.435Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/02/be4a57b60c7149b55b9e3b3c13f609cd8eb5307c751f22bd8fb8d262e75b/filelock-3.29.7-py3-none-any.whl", hash = "sha256:987db6f789a3a2a59f55081801b2b3697cb97e2a736b5f1a9e99b559285fbc51", size = 46036, upload-time = "2026-07-08T05:46:57.53Z" },
+    { url = "https://files.pythonhosted.org/packages/28/00/db89d339bc4ecdc8087fa7b8607ba22ffc27bf96286f340c9620bea428b3/filelock-4.2.1-py3-none-any.whl", hash = "sha256:7be2662e9e826b9bba28afc0f843a123280d799a2ea44bb5d35ccec67905ae44", size = 162455, upload-time = "2026-10-17T16:48:12.937Z" },
 ]
 
 [[package]]
